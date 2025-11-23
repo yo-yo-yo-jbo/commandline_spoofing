@@ -74,3 +74,7 @@ The application was unable to start correctly (0xC0000142). Click OK to close th
 ```
 
 This requires some debugging, as our algorithm should work in principal!
+
+## Debugging the problem
+At this point, I set up my debugger [WinDbg](https://en.wikipedia.org/wiki/WinDbg) and attach to the suspended process just before calling [ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread). As expected, everything actually seems to be in order:
+
