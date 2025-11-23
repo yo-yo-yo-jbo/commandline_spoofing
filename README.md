@@ -111,7 +111,6 @@ PEB at 0000005615f57000
 However, after resumption we get a crash:
 
 ```
-        windir=C:\WINDOWS
 0:001> g
 ModLoad: 00007ff8`7e830000 00007ff8`7e8f9000   C:\WINDOWS\System32\KERNEL32.DLL
 ModLoad: 00007ff8`7d480000 00007ff8`7d872000   C:\WINDOWS\System32\KERNELBASE.dll
