@@ -2,7 +2,7 @@
 So, in this blogpost I wanted to cover a well-known technique with a limitation that is not well-documented.  
 I hope to share some slight insights on Windows process creation and internals.  
 The topic of today is spoofing process commandlines on Windows.  
-To be relevant, I will only be describing the technique on 64-bit Intel architecture, which is the most prevalent Windows architecture in the world. The differences between that and other architectures are minor, and mostly come into play when examining the data structures used throughout the blogpost.
+To be relevant, I will only be describing the technique on 64-bit Intel architecture, which is the most prevalent Windows architecture in the world. The differences between that and other architectures are minor, and mostly come into play when examining the data structures used throughout the blogpost. Also, I will not be handling [WOW64](https://learn.microsoft.com/en-us/windows/win32/winprog64/wow64-implementation-details) at all, thus targeting true 64-bit processes only.
 
 ## Motivation
 The technique's idea (which I haven't invented myself!) is to start a suspended process, wait a bit, and by modifying the process's memory - change its commandline and resume it.  
