@@ -290,3 +290,6 @@ In essence, this function does the following:
 The conclusion here - since `RTL_USER_PROCESS_PARAMETERS` is not a flat structure, and since we see one memory copy, we conclude that this function relies on those `UNICODE_STRING` Buffer members to be adjacent to the `RTL_USER_PROCESS_PARAMETERS`! In fact, that's the entire point of the `Length` member in `RTL_USER_PROCESS_PARAMETERS` - it seems to encompass the entire sturcture plus those buffers. That is also the reason there is a "fix" for all those buffers!  
 Why does Windows do that? Well, the initial `RTL_USER_PROCESS_PARAMETERS` was set up by the kernel and allocated via crude virtual memory allocations, thus taking more space (and owned by the kernel).  
 Thus, there is a desire to free that memory, but before doing that - the process takes ownership and also uses its own heap, which allows for fine-grained allocations (not page-sized necessarily).
+
+## Getting rid of the assumption
+In [his blogpost]((https://l--k.uk/2022/03/05/command-line-tampering-in-windows-part-iii/)), `L<<K` suggests to create your own fake `RTL_USER_PROCESS_PARAMETERS` structure, populate it (including all the different buffers that are supposed to immediately follow it) and override it all - this certainly works, as the assumption does not break.
