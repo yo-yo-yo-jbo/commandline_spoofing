@@ -305,8 +305,25 @@ Once `kernel32.dll` is loaded, I simply return to my original plan (allocate buf
 
 ### The algorithm
 Here is my final algorithm:
-
-
-
-
-
+1. Create a new process using the [CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw) API, specifying `DEBUG_ONLY_THIS_PROCESS` in its creation flags and obviously using the old commandline. We get back two `HANDLE`s - one for the created process and one for the main (and only) thread.
+2. Optionally sleep for a while (e.g. using [Sleep](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleep) API) to let the EDR time to capture the old (and legitimate-looking) commandline.
+3. Get my own `kernel32.dll` base address (via [GetModuleHandleW](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew)) and then, in a loop:
+     1. Invoke [WaitForDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-waitfordebugevent) API and get back the [DEBUG_EVENT](https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-debug_event).
+     2. If we got `CREATE_PROCESS_DEBUG_EVENT`, close the file handle via [CloseHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle).
+     3. If we got `LOAD_DLL_DEBUG_EVENT`, close the file handle via [CloseHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle) but also compare our own `kernel32.dll` base address with the newly loaded DLL base address. If they match - break out of the loop.
+     4. Invoke [ContinueDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-continuedebugevent) and continue to the next iteration.
+4. Now that `kernel32.dll` was loaded, go with the original plan:
+     1. Use the [ntdll!NtQueryInformationProcess](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryinformationprocess) API on the process handle, with the `ProcessBasicInformation` information class. We get back a `PROCESS_BASIC_INFORMATION` structure, which has the remote process's [PEB](https://en.wikipedia.org/wiki/Process_Environment_Block) address.
+     2. Invoke the [ReadProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-readprocessmemory) API to read the remote process's PEB (since we got its address). Specifically, we care about the `ProcessParameters` structure, which is a pointer.
+     3. Invoke the [ReadProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-readprocessmemory) API again, this time to read the `ProcessParameters`, of type [RTL_USER_PROCESS_PARAMETERS](https://learn.microsoft.com/en-us/windows/win32/api/winternl/ns-winternl-rtl_user_process_parameters).
+     4. Use [WriteProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory) API to zero-out the old buffer (pointed by `CommandLine.Buffer`).
+     5. Use the [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex) API to allocate a new chunk for the new commandline, including a NUL terminator (note these are wide strings, so a NUL terminator is 2 bytes), with protection `PAGE_READWRITE`. Get a resulting allocated virtual address.
+     6. Use the [WriteProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory) API to write our new commandline to the address returned.
+     7. Update `CommandLine.MaximumLength` to the new capacity (the string's length in bytes including a NUL terminator), update `CommandLine.Length` to be the new length in bytes (excluding the NUL terminator), and `CommandLine.Buffer` to point to our newly allocated buffer.
+     8. Use the [WriteProcessMemory](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory) API to commit those changes to the remote process.
+5. At this point everything is set and we just need to detach. Detaching is not terrible but requires careful handling:
+     1. We invoke [SuspendThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-suspendthread) API to suspend the main thread. We do that because we want to exhaust the debug queue, without generating new debug events. We also know at this point the remote process is only single-threaded, so suspending the main thread is sufficient.
+     2. We call [ContinueDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-continuedebugevent) on the original `kernel32.dll` loading debug event.
+     3. In a loop, we call [WaitForDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-waitfordebugevent), close any open file handle with [CloseHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle) and invoking [ContinueDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-continuedebugevent).
+     4. Call [DebugActiveProcessStop](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-debugactiveprocessstop) API to detach.
+     5. Finally, we call [ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread) on the main thread to resume the process.
