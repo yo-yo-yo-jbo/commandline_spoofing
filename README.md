@@ -75,7 +75,7 @@ To explain the data structures used schematically, here's some ASCII art:
                                                                   +-------------------------------+
 ```
 
-What we basically do is resolve all those points, override the buffer (denoted as `Commandline (PWSTR)`) and fix `CommandLine.Length`.
+What we basically do is resolve all those pointers, override the buffer (denoted as `Commandline (PWSTR)`) and fix `CommandLine.Length`.
 
 ## Breaking the commandline length assumption
 The assumption for the new commandline to not exceed the old commandline length seems a bit silly in a first glance - can we not allocate our own `CommandLine.Buffer` using [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex), write our own commandline there and set the buffer accordingly?  
