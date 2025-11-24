@@ -329,7 +329,7 @@ Here is my final algorithm:
      5. Finally, we call [ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread) on the main thread to resume the process.
 
 ### Implementation
-I have uploaded my own implementation to the [CmdSpoofer] directory. It's a simple Visual Studio project that has the following files:
+I have uploaded my own implementation to the [CmdSpoofer](CmdSpoofer) directory. It's a simple Visual Studio project that has the following files:
 - `Auxiliary.h` - my own header file I sometimes use for useful macros.
 - `Spoofer.h` - the header file for the commandline spoofer.
 - `Spoofer.c` - implementation for the commandline spoofer.
