@@ -328,7 +328,7 @@ All that also means we have to update our mental image of the structures, and ou
                                                                   |   Commandline (PWSTR) <-------------------+   |
                                                                   |                               |   |   |       |
                                                                   |   DllPath (PWSTR) <-------------------+       |
-                                                                  |                              |    |           |
+                                                                  |                               |   |           |
                                                                   |   ImagePathName (PWSTR) <---------+           |
                                                                   |   ... (more buffers)          |               |
                                                                   |                               |               |
