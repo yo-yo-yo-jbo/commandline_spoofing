@@ -59,8 +59,8 @@ spoofer_CreateDebuggedChild(
 	__in __notnull PCWSTR pwszCommandline,
 	__in BOOL bHideWindow,
 	__in BOOL bHideConsole,
-	__out PHANDLE phProcess,
-	__out PHANDLE phThread
+	__out __notnull PHANDLE phProcess,
+	__out __notnull PHANDLE phThread
 )
 {
 	RETSTATUS eStatus = RETSTATUS_UNEXPECTED;
@@ -685,3 +685,4 @@ lblCleanup:
 	// Return status
 	return eStatus;
 }
+
