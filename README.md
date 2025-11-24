@@ -310,19 +310,22 @@ All that also means we have to update our mental image of the structures, and ou
 +---------------------------+        +----------------------+     +-------------------------------+    <----------+
 |                           |        |                      |     |                               |               |
 | PROCESS_BASIC_INFORMATION |  +-------> PEB                |  +----> RTL_USER_PROCESS_PARAMETERS |               |
-| ========================= |  |     |   ===                |  |  |   =========================== |               | (Length encompasses all of this)
+| ========================= |  |     |   ===                |  |  |   =========================== |               |
 | ...                       |  |     |   ...                |  |  |   ...                         |               |
-| PebBaseAddresss -------------+     |   ProcessParameters ----+  |   Length -------------------------------------+
+| PebBaseAddresss -------------+     |   ProcessParameters ----+  |   Length --- (encompasses) -------------------+
 | ...                       |        |   ...                |     |   ...                         |               |
 |                           |        |                      |     |   CommandLine.Buffer ---------------------+   |
 +---------------------------+        +----------------------+     |   ...                         |           |   |
                                                                   |   DllPath.Buffer ---------------------+   |   |
                                                                   |   ...                         |       |   |   |
-                                                                  |   ImagePathName.Buffer --- -------+   |   |   |
-                                                                  |   (more UNICODE_STRINGs)      |   |   |   |   |
+                                                                  |   ImagePathName.Buffer -----------+   |   |   |
+                                                                  |   (more UNICODE_STRINGs etc.) |   |   |   |   |
                                                                   +-------------------------------+   |   |   |   |
+                                                                  |                               |   |   |   |   |
                                                                   |   Commandline (PWSTR) <-------------------+   |
+                                                                  |                               |   |   |       |
                                                                   |   DllPath (PWSTR) <-------------------+       |
+                                                                  |                              |    |           |
                                                                   |   ImagePathName (PWSTR) <---------+           |
                                                                   |   ... (more buffers)          |               |
                                                                   |                               |               |
