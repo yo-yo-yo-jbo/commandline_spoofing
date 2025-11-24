@@ -327,3 +327,20 @@ Here is my final algorithm:
      3. In a loop, we call [WaitForDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-waitfordebugevent), close any open file handle with [CloseHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle) and invoking [ContinueDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-continuedebugevent).
      4. Call [DebugActiveProcessStop](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-debugactiveprocessstop) API to detach.
      5. Finally, we call [ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread) on the main thread to resume the process.
+
+### Implementation
+I have uploaded my own implementation to the [CmdSpoofer] directory. It's a simple Visual Studio project that has the following files:
+- `Auxiliary.h` - my own header file I sometimes use for useful macros.
+- `Spoofer.h` - the header file for the commandline spoofer.
+- `Spoofer.c` - implementation for the commandline spoofer.
+- `Main.c` - main entry point and shows how to use the spoofer module.
+
+Using as a black-box is easy - just include `Spoofer.h` and invoke `SPOOFER_Spawn`.  
+I made sure to document everything.
+
+## Summary
+In this blogpost we've discussed some familiar ideas (`PEB` and so on), did some minor Windows internals (on the transition of `RTL_USER_PROCESS_PARAMETERS` from kernel memory to userland memory), and even did some debugging - both with `windbg` as well as implementing our own "debugger" for delaying of the commandline patching!
+
+Stay tuned!
+
+Jonathan Bar Or
