@@ -59,6 +59,21 @@ In any case, here is the complete algorithm:
 10. We call the [ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread) API on the main thread's `HANDLE`, which resumes the entire process execution.
 11. For cleanup, we invoke the [CloseHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle) API on both the process and the thread `HANDLE`s.
 
+To explain the data structures used schematically, here's some ASCII art:
+```
+        +---------------------------+        +----------------------+     +-------------------------------+
+        |                           |        |                      |     |                               |
+        | PROCESS_BASIC_INFORMATION |  +-------> PEB                |  +----> RTL_USER_PROCESS_PARAMETERS |  +-----> Commandline (PWSTR)
+        | ========================= |  |     |   ===                |  |  |   =========================== |  |
+        | ...                       |  |     |   ...                |  |  |   ...                         |  |
+        | PebBaseAddresss -------------+     |   ProcessParameters ----+  |   CommandLine.Length          |  |
+        | ...                       |        |   ...                |     |   CommandLine.MaxiumumLength  |  |
+        |                           |        |                      |     |   CommandLine.Buffer ------------+
+        +---------------------------+        +----------------------+     |   ...                         |
+                                                                          |                               |
+                                                                          +-------------------------------+
+```
+
 ## Breaking the commandline length assumption
 The assumption for the new commandline to not exceed the old commandline length seems a bit silly in a first glance - can we not allocate our own `CommandLine.Buffer` using [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex), write our own commandline there and set the buffer accordingly?  
 Interestingly, it does not work, but it takes a while to understand why. Here is the revised algorithm:
