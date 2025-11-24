@@ -291,4 +291,22 @@ Why does Windows do that? Well, the initial `RTL_USER_PROCESS_PARAMETERS` was se
 Thus, there is a desire to free that memory, but before doing that - the process takes ownership and also uses its own heap, which allows for fine-grained allocations (not page-sized necessarily).
 
 ## Getting rid of the assumption
-In [his blogpost]((https://l--k.uk/2022/03/05/command-line-tampering-in-windows-part-iii/)), `L<<K` suggests to create your own fake `RTL_USER_PROCESS_PARAMETERS` structure, populate it (including all the different buffers that are supposed to immediately follow it, and, most importantly - the `Length` member) and override it all - this certainly works, as the assumption does not break.
+In [his blogpost]((https://l--k.uk/2022/03/05/command-line-tampering-in-windows-part-iii/)), `L<<K` suggests to create your own fake `RTL_USER_PROCESS_PARAMETERS` structure, populate it (including all the different buffers that are supposed to immediately follow it, and, most importantly - the `Length` member) and override it all - this certainly works, as the assumption does not break.  
+However, when it comes to coding those kinds of techniques, I am quite conservative. Relying on an undocumented Length member in the `RTL_USER_PROCESS_PARAMETERS` might be a bit scary between OS versions, as well as incorporating future `UNICODE_STRING`s that Microsoft might decide to add to that structure.  
+Instead, I took a different approach.
+- I noticed that the only DLL loaded to the process when it starts suspended is `ntdll.dll` (besides, of course, the main executable PE image).
+- By debugging, I realized that when `kernel32.dll` is loaded, `ntdll!RtlpInitParameterBlock` has already done its job.
+- Thus, if I can delay the `RTL_USER_PROCESS_PARAMETERS` patching, I could go with my original plan of invoking [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex) and so on.
+
+The best way to achieve something like that is debugging the created process - so, when invoking [CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw), instead of supplying `CREATE_SUSPENDED` as the creation flags - I supply `DEBUG_ONLY_THIS_PROCESS`.  
+This puts me in a state where I can invoke [WaitForDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-waitfordebugevent) in a loop, until I see `kernel32.dll`, each time using [ContinueDebugEvent](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-continuedebugevent).  
+I also used a little trick - since `kernel32.dll` is a **KnownDll**, it will be loaded to all processes in the same base address. I wrote about this behavior [in a previous blogpost](https://github.com/yo-yo-yo-jbo/virtual_memory_known_dlls), and use it here - I just compare my own `kernel32.dll` base address with the one reported in the [DEBUG_EVENT](https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-debug_event) that specifies DLL loads.  
+Once `kernel32.dll` is loaded, I simply return to my original plan (allocate buffer with [VirtualAllocEx](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualallocex), write the buffer and update the CommandLine member of `RTL_USER_PROCESS_PARAMETERS`). Then, I detach my debugger and let the process run. Done!
+
+### The algorithm
+Here is my final algorithm:
+
+
+
+
+
