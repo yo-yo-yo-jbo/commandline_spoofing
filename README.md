@@ -300,8 +300,8 @@ ptPeb->ProcessParameters = ptNewParams;
 
 You can figure out most of this from [Geoff Chapell's documentation of RTL_USER_PROCESS_PARAMETERS](https://www.geoffchappell.com/studies/windows/km/ntoskrnl/inc/api/pebteb/rtl_user_process_parameters.htm) without hardcore reverse engineering.  
 In essence, this function does the following:
-1. Allocate a new `RTL_USER_PROCESS_PARAMETERS` on the current process default heap, **with the size derived from the Length member of the old RTL_USER_PROCESS_PARAMETERS**. This is going to be critical, as this size **exceeds the size of RTL_USER_PROCESS_PARAMETERS**.
-2. Copy the old parmaeters to the newly allocated chunk.
+1. Allocate a new `RTL_USER_PROCESS_PARAMETERS` on the current process default heap, **with the size derived from the Length member of the old RTL_USER_PROCESS_PARAMETERS**. This is going to be critical, as this size **exceeds the size of RTL_USER_PROCESS_PARAMETERS**. Also note this "Length" member is undocumented.
+2. Copy the old parameters to the newly allocated chunk.
 3. Calculate the difference in pointers between the old parameters and the new ones, and fix various `Buffer` members in various `UNICODE_STRING`s, including our CommandLine's.
 4. Set the `PEB`'s ProcessParameters to be the newly allocated parameters.
 
