@@ -38,7 +38,7 @@ typedef struct _UNICODE_STRING {
 ```
 
 The `Buffer` points to the actual wide string (note it's just a pointer), while the `Length` corresponds to the string's length (in bytes), *excluding* the NUL terminator. Lastly, the `MaximumLength` corresponds to the string buffer's capacity (in bytes), *including* the NUL terminator.  
-Note: on 64-bit systems, there is a 4-bit padding between `MaximumLength` and `Buffer` to make the `Buffer` member 8-byte aligned.
+Note: on 64-bit systems, there is a 4-byte padding between `MaximumLength` and `Buffer` to make the `Buffer` member 8-byte aligned.
 
 Lastly, when debugging, we will be relying a bit on the 64-bit [calling convention](https://en.wikipedia.org/wiki/Calling_convention), which means first four arguments to functions are passed via registers `rcx`, `rdx`, `r8` and `r9`.  
 This is again a clear 64-bit difference (32-bit calling conventions pass arguments on the stack).
