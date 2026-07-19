@@ -391,4 +391,4 @@ In this blogpost we've discussed some familiar ideas (`PEB` and so on), did some
 
 Stay tuned!
 
-Jonathan Bar Or
+Jonathan Bar Or (https://jonathanbaror.com)
